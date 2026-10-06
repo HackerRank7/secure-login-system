@@ -124,3 +124,28 @@ def test_wrong_recovery_key_rejected(client):
     r = post(client, "/forgot-password", username="test_21", recovery_key="AAAA-AAAA-AAAA-AAAA-AAAA",
              password="New@Pass99", confirm="New@Pass99")
     assert "incorrect" in r.get_data(as_text=True)
+
+
+# ---------- Automatic session expiry ----------
+def test_session_expires_after_30_minutes(client):
+    from datetime import datetime
+    register(client)
+    post(client, "/login", username="test_21", password="Test@1234")
+    assert client.get("/dashboard").status_code == 200                     # Fresh session works
+    with client.session_transaction() as s:
+        s["login_time"] = datetime.now().timestamp() - 31 * 60             # Pretend the login was 31 minutes ago
+    r = client.get("/dashboard")
+    assert r.status_code == 302 and r.headers["Location"].endswith("/login")   # Expired: sent to login
+    assert "session expired" in client.get("/login").get_data(as_text=True)    # ...with a clear message
+    assert client.get("/dashboard").status_code == 302                         # Session is really gone
+
+def test_active_use_does_not_extend_session(client):
+    from datetime import datetime
+    register(client)
+    post(client, "/login", username="test_21", password="Test@1234")
+    with client.session_transaction() as s:
+        s["login_time"] = datetime.now().timestamp() - 29 * 60             # 29 minutes in
+    assert client.get("/dashboard").status_code == 200                     # Still allowed
+    assert client.get("/dashboard").get_data(as_text=True).count('http-equiv="refresh"') == 1   # Auto-redirect timer present
+    with client.session_transaction() as s:
+        assert datetime.now().timestamp() - s["login_time"] < 31 * 60      # Clicking did not reset the clock

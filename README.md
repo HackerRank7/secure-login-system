@@ -10,7 +10,7 @@ Every line of code is commented to explain what it does, so it is also a good le
 | **Registration & login** | Passwords hashed with **bcrypt** (salted, 12 rounds). Plain passwords are never stored. |
 | **Input validation** | Username and password rules checked on the server with clear error messages. |
 | **SQL injection protection** | Every database query uses parameterised placeholders (`?`). |
-| **Session management** | Secure cookie (`HttpOnly`, `SameSite`), 30-minute expiry, session reset on login/logout. |
+| **Session management** | Secure cookie (`HttpOnly`, `SameSite`), fixed 30-minute limit from login (enforced on the server, not extended by activity), automatic redirect to login when time is up, session reset on login/logout. |
 | **Logout** | Protected POST logout that destroys the whole session. |
 | **2FA (optional)** | Time-based one-time codes (Google Authenticator, Authy, Microsoft Authenticator) with QR-code setup. |
 | **Password recovery** | One-time **recovery key** shown at registration (printable / save as PDF) and used to reset a forgotten password. |

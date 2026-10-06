@@ -20,6 +20,7 @@ app.config.update(
     SESSION_COOKIE_SAMESITE="Lax",                    # Browser won't send the cookie on cross-site POSTs (CSRF defence)
     SESSION_COOKIE_SECURE=os.environ.get("HTTPS") == "1",  # Send cookie only over HTTPS when you set HTTPS=1 in production
     PERMANENT_SESSION_LIFETIME=timedelta(minutes=30), # Sessions automatically expire after 30 minutes
+    SESSION_REFRESH_EACH_REQUEST=False,               # Do NOT extend the session on every click (fixed 30 minutes from login)
 )
 
 DB_PATH = "users.db"                                  # SQLite database file name
@@ -83,6 +84,11 @@ def login_required(view):
         if "user_id" not in session:                  # Not logged in?
             flash("Please log in first.", "error")
             return redirect(url_for("login"))         # Send them to the login page
+        limit = app.config["PERMANENT_SESSION_LIFETIME"].total_seconds()       # Allowed session length (30 minutes)
+        if datetime.now().timestamp() - session.get("login_time", 0) > limit:  # Has 30 minutes passed since login?
+            session.clear()                           # Yes: destroy the session (automatic logout)
+            flash("Your session expired after 30 minutes. Please log in again.", "error")
+            return redirect(url_for("login"))
         return view(*a, **kw)
     return wrapper
 
@@ -232,6 +238,7 @@ def login():
                     session["pending_2fa"] = user["id"]           # Password OK, but 2FA code still needed
                     return redirect(url_for("verify_2fa"))
                 session["user_id"], session["username"] = user["id"], user["username"]  # Fully logged in
+                session["login_time"] = datetime.now().timestamp()   # Remember WHEN the user logged in (for the 30-minute limit)
                 session.permanent = True                          # Apply the 30-minute lifetime
                 return redirect(url_for("dashboard"))
             if user:                                              # Wrong password for a real user: count it
@@ -317,6 +324,7 @@ def verify_2fa():
         if pyotp.TOTP(user["totp_secret"]).verify(code, valid_window=1):   # Accept the current code (+/- 30 seconds)
             session.clear()
             session["user_id"], session["username"] = user["id"], user["username"]   # Login complete
+            session["login_time"] = datetime.now().timestamp()   # Remember WHEN the user logged in (for the 30-minute limit)
             session.permanent = True
             return redirect(url_for("dashboard"))
         flash("Invalid code. Please try again.", "error")
@@ -337,6 +345,7 @@ SECURITY_TIPS = [                                                 # A new tip is
 
 WELCOME_HTML = """<!doctype html><html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1"><title>Welcome - Secure Login</title>
+<meta http-equiv="refresh" content="{{ remaining }};url={{ url_for('dashboard') }}">  <!-- Reloads at expiry; the server then logs the user out -->
 <style>
 *{box-sizing:border-box}body{margin:0;font-family:system-ui,sans-serif;background:#f1f5f9;color:#0f172a}
 nav{display:flex;justify-content:space-between;align-items:center;padding:14px 24px;background:#fff;box-shadow:0 1px 6px #0001}
@@ -373,7 +382,7 @@ ul{padding-left:18px;line-height:1.7;margin:0}footer{text-align:center;color:#64
     <div class="card"><h3>&#128100; Your session</h3>
       <p><b>Username:</b> {{ name }}</p>
       <p><b>Logged in at:</b> {{ now }}</p>
-      <p>For your safety, you will be logged out automatically after 30 minutes.</p></div>
+      <p>For your safety, you will be logged out automatically at <b>{{ expires }}</b> (30 minutes after login).</p></div>
 
     <div class="card"><h3>&#128161; Tip of the day</h3><p>{{ tip }}</p></div>
   </div>
@@ -390,12 +399,15 @@ ul{padding-left:18px;line-height:1.7;margin:0}footer{text-align:center;color:#64
 @login_required
 def dashboard():
     user = get_db().execute("SELECT totp_enabled FROM users WHERE id=?", (session["user_id"],)).fetchone()  # Is 2FA on?
+    end = session["login_time"] + app.config["PERMANENT_SESSION_LIFETIME"].total_seconds()   # Moment the session ends
+    remaining = max(int(end - datetime.now().timestamp()) + 1, 1)  # Seconds left (used by the auto-redirect)
+    expires = datetime.fromtimestamp(end).strftime("%I:%M %p")    # Friendly time, e.g. "03:45 PM"
     hour = datetime.now().hour                                    # Current hour (0-23) for the greeting
     greeting = "Good morning" if hour < 12 else "Good afternoon" if hour < 17 else "Good evening"  # Pick greeting by time
     tip = SECURITY_TIPS[datetime.now().timetuple().tm_yday % len(SECURITY_TIPS)]  # One tip per day
     return render_template_string(                                # Render the full-width welcome page
         WELCOME_HTML, csrf=csrf_token(), name=session["username"], on=user["totp_enabled"],
-        greeting=greeting, tip=tip, now=datetime.now().strftime("%d %b %Y, %I:%M %p"),  # e.g. "06 Oct 2026, 03:45 PM"
+        greeting=greeting, tip=tip, remaining=remaining, expires=expires, now=datetime.now().strftime("%d %b %Y, %I:%M %p"),  # e.g. "06 Oct 2026, 03:45 PM"
         messages=session.pop("_flashes", []))                     # Show one-time messages (e.g. "2FA enabled")
 
 @app.route("/setup-2fa", methods=["GET", "POST"])
