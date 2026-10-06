@@ -3,7 +3,7 @@
 A secure, user-friendly login web app built with **Flask**, **SQLite**, **bcrypt** and optional **TOTP two-factor authentication (2FA)**.
 Works on **Linux, Kali, macOS and Windows**. Every line of code is commented to explain what it does, so it is also a good learning project.
 
-![Tests](https://github.com/<your-username>/secure-login-system/actions/workflows/tests.yml/badge.svg)
+![Tests](https://github.com/HackerRank7/secure-login-system/actions/workflows/tests.yml/badge.svg)
 
 ## ✨ Features
 
@@ -31,7 +31,7 @@ Works on **Linux, Kali, macOS and Windows**. Every line of code is commented to 
 Requirements: **Python 3.10 or newer** and **Git**.
 
 ```bash
-git clone https://github.com/<your-username>/secure-login-system.git
+git clone https://github.com/HackerRank7/secure-login-system.git
 cd secure-login-system
 ```
 
