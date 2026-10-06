@@ -15,3 +15,4 @@ users.db
 .idea/
 .DS_Store
 Thumbs.db
+.secret_key

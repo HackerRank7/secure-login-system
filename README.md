@@ -1,7 +1,9 @@
 # 🔐 Secure Login System
 
 A secure, user-friendly login web app built with **Flask**, **SQLite**, **bcrypt** and optional **TOTP two-factor authentication (2FA)**.
-Every line of code is commented to explain what it does, so it is also a good learning project.
+Works on **Linux, Kali, macOS and Windows**. Every line of code is commented to explain what it does, so it is also a good learning project.
+
+![Tests](https://github.com/<your-username>/secure-login-system/actions/workflows/tests.yml/badge.svg)
 
 ## ✨ Features
 
@@ -10,13 +12,13 @@ Every line of code is commented to explain what it does, so it is also a good le
 | **Registration & login** | Passwords hashed with **bcrypt** (salted, 12 rounds). Plain passwords are never stored. |
 | **Input validation** | Username and password rules checked on the server with clear error messages. |
 | **SQL injection protection** | Every database query uses parameterised placeholders (`?`). |
-| **Session management** | Secure cookie (`HttpOnly`, `SameSite`), fixed 30-minute limit from login (enforced on the server, not extended by activity), automatic redirect to login when time is up, session reset on login/logout. |
+| **Session management** | Secure cookie (`HttpOnly`, `SameSite`), fixed 30-minute limit from login (enforced on the server, not extended by activity), automatic redirect to login when time is up. |
 | **Logout** | Protected POST logout that destroys the whole session. |
 | **2FA (optional)** | Time-based one-time codes (Google Authenticator, Authy, Microsoft Authenticator) with QR-code setup. |
-| **Password recovery** | One-time **recovery key** shown at registration (printable / save as PDF) and used to reset a forgotten password. |
+| **Password recovery** | One-time **recovery key** shown at registration (print / save as PDF) and used to reset a forgotten password. |
 | **Brute-force protection** | Account locks for 10 minutes after 5 wrong attempts (login and recovery). |
-| **Extra hardening** | CSRF tokens on all forms, security headers (CSP, `X-Frame-Options`, `nosniff`, `no-store`), identical error messages for wrong username/password, constant-time checks. |
-| **UI** | Modern login page, welcome dashboard with daily security tip, mobile-friendly layout. |
+| **Extra hardening** | CSRF tokens on all forms, security headers (CSP, `X-Frame-Options`, `nosniff`, `no-store`), identical error messages for wrong username/password. |
+| **UI** | Modern login page with show/hide password, welcome dashboard with daily security tip, mobile-friendly layout. |
 
 ## 📋 Input rules
 
@@ -26,55 +28,73 @@ Every line of code is commented to explain what it does, so it is also a good le
 
 ## 🚀 Quick start
 
-### Linux / macOS (including Kali)
+Requirements: **Python 3.10 or newer** and **Git**.
+
 ```bash
 git clone https://github.com/<your-username>/secure-login-system.git
 cd secure-login-system
-
-sudo apt update && sudo apt install -y python3-venv python3-pip   # Debian/Kali only
-python3 -m venv venv
-source venv/bin/activate
-pip install -r requirements.txt
-python app.py
 ```
 
-### Windows (PowerShell)
-```powershell
-git clone https://github.com/<your-username>/secure-login-system.git
-cd secure-login-system
+### 🐧 Linux / Kali / macOS
 
-python -m venv venv
-Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass   # only if activate is blocked
-venv\Scripts\activate
-pip install -r requirements.txt
-python app.py
+```bash
+chmod +x setup.sh run.sh test.sh     # only needed if the scripts are not executable
+./setup.sh                           # one time: creates venv and installs everything
+./run.sh                             # starts the app
 ```
+On Debian/Kali, if `setup.sh` complains about venv: `sudo apt install -y python3-venv python3-pip`
+
+### 🪟 Windows
+
+Double-click **`setup.bat`** once, then double-click **`run.bat`**. Or from Command Prompt / PowerShell:
+```
+.\setup.bat
+.\run.bat
+```
+The `.bat` files call the virtual environment's Python directly, so you do **not** need to change any PowerShell execution policy.
 
 Then open **http://127.0.0.1:5000** in your browser.
 
-> The database file `users.db` is created automatically on first run. If you change the database structure, delete `users.db` and restart.
+<details>
+<summary>Prefer to do it manually?</summary>
 
-## ⚙️ Configuration
-
-| Environment variable | Purpose |
-|---|---|
-| `SECRET_KEY` | Key that signs session cookies. **Set a fixed random value in production**, otherwise everyone is logged out on each restart. Generate one with `python -c "import secrets; print(secrets.token_hex(32))"`. |
-| `HTTPS=1` | Marks the session cookie as `Secure` (sent over HTTPS only). Set this when serving over HTTPS. |
-
-Example:
 ```bash
-export SECRET_KEY="paste-your-random-key-here"
-python app.py
+# Linux / macOS                          # Windows (PowerShell)
+python3 -m venv venv                     python -m venv venv
+source venv/bin/activate                 Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+pip install -r requirements.txt          venv\Scripts\activate
+python app.py                            pip install -r requirements.txt
+                                         python app.py
+```
+</details>
+
+## ⚙️ Configuration (environment variables)
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `SECRET_KEY` | auto-saved in `.secret_key` by the run scripts | Signs session cookies. Use a fixed random value in production. Generate: `python -c "import secrets; print(secrets.token_hex(32))"` |
+| `SESSION_MINUTES` | `30` | Session length. Set `1` to quickly test the automatic logout. |
+| `HTTPS` | off | Set `HTTPS=1` to mark the cookie `Secure` when serving over HTTPS. |
+| `HOST` | `127.0.0.1` | Set `0.0.0.0` to reach the app from another device on your network (use only on a trusted test network). |
+| `PORT` | `5000` | Port to listen on. |
+
+Examples:
+```bash
+SESSION_MINUTES=1 ./run.sh                 # Linux/macOS: 1-minute session
+```
+```
+set SESSION_MINUTES=1 && run.bat           REM Windows (Command Prompt)
 ```
 
 ## 🧪 Run the automated tests
 
 ```bash
-pip install pytest
-pytest -v
+./test.sh          # Linux / macOS
+test.bat           # Windows
 ```
+Or manually: `python -m pytest -v`. The **25 tests** cover validation, registration, duplicate and case-sensitive usernames, bcrypt hashing, login, lockout, logout, session expiry, CSRF, SQL-injection attempts, security headers and the recovery-key flow.
 
-The tests cover validation rules, registration, duplicate usernames, login, lockout, logout, CSRF protection, SQL-injection attempts and the recovery-key flow.
+GitHub Actions (`.github/workflows/tests.yml`) runs the same tests automatically on **Ubuntu and Windows** with Python 3.10 and 3.12 for every push.
 
 ## 🔍 Manual security checklist
 
@@ -86,28 +106,44 @@ The tests cover validation rules, registration, duplicate usernames, login, lock
 | 5 wrong passwords in a row | Account locked for 10 minutes |
 | Submit a form without `csrf_token` | `400 Invalid form token` |
 | Open `/dashboard` after logout | Redirected to login |
+| Run with `SESSION_MINUTES=1`, stay on dashboard | Automatically sent to login after 1 minute |
 | Enable 2FA, log out, log in again | 6-digit code is asked after the password |
-| Forgot password with the saved recovery key | Password reset and a new key is issued; old key stops working |
+| Forgot password with the saved recovery key | Password reset, new key issued, old key stops working |
 
 ## 🗂️ Project structure
 
 ```
 secure-login-system/
-├── app.py              # The whole application (routes, security, HTML templates)
-├── requirements.txt    # Python dependencies
-├── tests/
-│   └── test_app.py     # Automated tests (pytest)
-├── .gitignore          # Keeps the database, venv and secrets out of Git
-├── LICENSE             # MIT licence
+├── app.py                 # The whole application (routes, security, HTML templates)
+├── requirements.txt       # Runtime dependencies
+├── requirements-dev.txt   # + pytest for testing
+├── setup.sh / setup.bat   # One-time setup (Linux/macOS | Windows)
+├── run.sh / run.bat       # Start the app
+├── test.sh / test.bat     # Run the tests
+├── tests/test_app.py      # Automated tests (pytest)
+├── .github/workflows/     # CI: tests on Ubuntu + Windows
+├── .gitignore  .gitattributes
+├── LICENSE
 └── README.md
 ```
+
+## 🛠️ Troubleshooting
+
+| Problem | Fix |
+|---|---|
+| `externally-managed-environment` (Kali/Debian) | Use `./setup.sh` (it uses a virtual environment) instead of plain `pip install`. |
+| `venv\Scripts\activate` blocked in PowerShell | Use `run.bat`, or run `Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass` first. |
+| `python` not found on Windows | Install Python from python.org and tick **Add Python to PATH**, then reopen the terminal. |
+| `Address already in use` | Another program uses port 5000. Start with a different port, e.g. `PORT=5050 ./run.sh`. |
+| Changes in code are not visible | Stop the server (`Ctrl + C`), start it again, and hard-refresh the browser (`Ctrl + F5`). |
+| Want a clean start | Stop the app and delete `users.db` (this removes all users). |
 
 ## 🏭 Before deploying to production
 
 - Set a fixed `SECRET_KEY` and `HTTPS=1`, and serve the app over **HTTPS**.
-- Run it with a production server such as **gunicorn** instead of `python app.py`.
-- Put it behind a reverse proxy (nginx) and consider adding rate limiting per IP.
-- Back up or migrate the database properly (SQLite is fine for demos and small apps).
+- Run it with a production server such as **gunicorn** (Linux) or **waitress** (Windows) instead of `python app.py`.
+- Put it behind a reverse proxy (nginx) and consider per-IP rate limiting.
+- SQLite is fine for demos and small apps; use PostgreSQL/MySQL for larger deployments.
 
 ## ⚠️ Known limitations
 

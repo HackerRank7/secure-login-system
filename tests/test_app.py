@@ -61,7 +61,9 @@ def test_usernames_are_case_sensitive(client):
 def test_password_is_hashed(client):
     register(client)
     import sqlite3
-    row = sqlite3.connect(appmod.DB_PATH).execute("SELECT password_hash FROM users").fetchone()
+    db = sqlite3.connect(appmod.DB_PATH)
+    row = db.execute("SELECT password_hash FROM users").fetchone()
+    db.close()   # Close the file so Windows can delete the temp database
     assert b"Test@1234" not in row[0] and row[0].startswith(b"$2")   # bcrypt hash, not plain text
 
 

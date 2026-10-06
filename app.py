@@ -13,13 +13,14 @@ from flask import (Flask, abort, flash, g, redirect,  # Flask web framework piec
                    render_template_string, request, session, url_for)
 from markupsafe import Markup                         # Marks our own HTML as safe to insert into the layout
 
+SESSION_MINUTES = int(os.environ.get("SESSION_MINUTES", "30"))   # Session length in minutes (default 30; set SESSION_MINUTES=1 to test quickly)
 app = Flask(__name__)                                 # Create the web application
 app.config.update(
     SECRET_KEY=os.environ.get("SECRET_KEY", secrets.token_hex(32)),  # Key that signs session cookies (set SECRET_KEY in production!)
     SESSION_COOKIE_HTTPONLY=True,                     # JavaScript cannot read the session cookie (blocks XSS cookie theft)
     SESSION_COOKIE_SAMESITE="Lax",                    # Browser won't send the cookie on cross-site POSTs (CSRF defence)
     SESSION_COOKIE_SECURE=os.environ.get("HTTPS") == "1",  # Send cookie only over HTTPS when you set HTTPS=1 in production
-    PERMANENT_SESSION_LIFETIME=timedelta(minutes=30), # Sessions automatically expire after 30 minutes
+    PERMANENT_SESSION_LIFETIME=timedelta(minutes=SESSION_MINUTES),  # Sessions automatically expire after SESSION_MINUTES
     SESSION_REFRESH_EACH_REQUEST=False,               # Do NOT extend the session on every click (fixed 30 minutes from login)
 )
 
@@ -87,7 +88,7 @@ def login_required(view):
         limit = app.config["PERMANENT_SESSION_LIFETIME"].total_seconds()       # Allowed session length (30 minutes)
         if datetime.now().timestamp() - session.get("login_time", 0) > limit:  # Has 30 minutes passed since login?
             session.clear()                           # Yes: destroy the session (automatic logout)
-            flash("Your session expired after 30 minutes. Please log in again.", "error")
+            flash(f"Your session expired after {SESSION_MINUTES} minutes. Please log in again.", "error")
             return redirect(url_for("login"))
         return view(*a, **kw)
     return wrapper
@@ -382,7 +383,7 @@ ul{padding-left:18px;line-height:1.7;margin:0}footer{text-align:center;color:#64
     <div class="card"><h3>&#128100; Your session</h3>
       <p><b>Username:</b> {{ name }}</p>
       <p><b>Logged in at:</b> {{ now }}</p>
-      <p>For your safety, you will be logged out automatically at <b>{{ expires }}</b> (30 minutes after login).</p></div>
+      <p>For your safety, you will be logged out automatically at <b>{{ expires }}</b> ({{ minutes }} minutes after login).</p></div>
 
     <div class="card"><h3>&#128161; Tip of the day</h3><p>{{ tip }}</p></div>
   </div>
@@ -407,7 +408,7 @@ def dashboard():
     tip = SECURITY_TIPS[datetime.now().timetuple().tm_yday % len(SECURITY_TIPS)]  # One tip per day
     return render_template_string(                                # Render the full-width welcome page
         WELCOME_HTML, csrf=csrf_token(), name=session["username"], on=user["totp_enabled"],
-        greeting=greeting, tip=tip, remaining=remaining, expires=expires, now=datetime.now().strftime("%d %b %Y, %I:%M %p"),  # e.g. "06 Oct 2026, 03:45 PM"
+        greeting=greeting, tip=tip, remaining=remaining, expires=expires, minutes=SESSION_MINUTES, now=datetime.now().strftime("%d %b %Y, %I:%M %p"),  # e.g. "06 Oct 2026, 03:45 PM"
         messages=session.pop("_flashes", []))                     # Show one-time messages (e.g. "2FA enabled")
 
 @app.route("/setup-2fa", methods=["GET", "POST"])
@@ -444,4 +445,4 @@ def logout():
 
 if __name__ == "__main__":
     init_db()                                                     # Make sure the database exists
-    app.run(debug=False)                                          # debug=False is important for security
+    app.run(host=os.environ.get("HOST", "127.0.0.1"), port=int(os.environ.get("PORT", "5000")), debug=False)  # HOST/PORT can be changed with environment variables;                                          # debug=False is important for security
