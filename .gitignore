@@ -1,0 +1,17 @@
+# Virtual environment and Python cache
+venv/
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Local database and secrets (never commit these)
+users.db
+*.db
+.env
+
+# Editor / OS files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
