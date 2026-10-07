@@ -158,3 +158,9 @@ Email-based recovery, 2FA backup codes, "disable 2FA", login history, dark mode,
 ## 📄 Licence
 
 Released under the [MIT Licence](LICENSE). Use only on systems you own or have permission to test.
+
+---
+
+## ✍️ Author
+-  [![Gaurav Bharty](https://img.shields.io/badge/Gaurav%20Bharty-orange)]()
+
